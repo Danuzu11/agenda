@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Agenda David</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css"/>
+<link rel="stylesheet" href="css/styles.css"/>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">agenda <span>trabajo</span></div>
+      <div class="tagline">// david alejandro — tracker personal</div>
+      <div class="conn-badge">
+        <span class="dot" id="dot"></span>
+        <span id="conn-label">sin conectar</span>
+      </div>
+    </div>
+    <button class="config-toggle" onclick="toggleConfig()">
+      <i class="ti ti-settings"></i> configuración
+    </button>
+  </div>
+
+  <div class="config-panel" id="config-panel">
+    <div class="config-title">conexión a google sheets</div>
+    <div class="config-row">
+      <input class="cfg-input" id="inp-key" placeholder="API Key de Google..." type="password"/>
+      <input class="cfg-input" id="inp-clientid" placeholder="Google OAuth Client ID..."/>
+      <input class="cfg-input" id="inp-sheetid" placeholder="ID del spreadsheet..."/>
+      <button class="btn btn-primary" onclick="saveConfig()"><i class="ti ti-plug"></i> conectar</button>
+      <button class="btn btn-ghost" onclick="authorizeGoogle()"><i class="ti ti-user-check"></i> autorizar</button>
+    </div>
+    <div class="hint">
+      API Key: clave de Google Cloud con Sheets API habilitada<br>
+      Client ID: OAuth 2.0 Web Client ID del mismo proyecto<br>
+      Sheet ID: la parte larga en la URL → <code>/spreadsheets/d/<b>ESTE_ID</b>/edit</code>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">total horas</div>
+      <div class="stat-value purple" id="s-total">0</div>
+      <div class="stat-sub">este mes</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">días trabajados</div>
+      <div class="stat-value green" id="s-days">0</div>
+      <div class="stat-sub">entradas</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">promedio/día</div>
+      <div class="stat-value amber" id="s-avg">0</div>
+      <div class="stat-sub">horas</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">último día</div>
+      <div class="stat-value" id="s-last" style="font-size:1.1rem;color:var(--muted2);margin-top:4px;">—</div>
+      <div class="stat-sub">registrado</div>
+    </div>
+  </div>
+
+  <div class="tabs-wrap" id="tabs-wrap">
+    <button class="tab-add" onclick="addTab()" title="nueva pestaña"><i class="ti ti-plus"></i></button>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title" id="card-month">—</span>
+      <div class="card-actions">
+        <button class="btn btn-ghost btn-sm" onclick="syncSheet()"><i class="ti ti-refresh"></i> sync</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteActiveTab()"><i class="ti ti-folder-minus"></i> borrar pestaña</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportCSV()"><i class="ti ti-download"></i> CSV</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:70px">día</th>
+            <th style="width:90px">horas</th>
+            <th>actividades</th>
+            <th style="width:70px"></th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="add-form">
+      <div class="add-form-title">+ nueva entrada</div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>día</label>
+          <input class="inp inp-day" id="f-day" type="number" min="1" max="31" placeholder="1"/>
+        </div>
+        <div class="form-field">
+          <label>horas</label>
+          <input class="inp inp-hours" id="f-hours" type="number" step="0.5" min="0" placeholder="4.5"/>
+        </div>
+        <div class="form-field" style="flex:1">
+          <label>descripción</label>
+          <input class="inp inp-desc" id="f-desc" placeholder="qué hiciste hoy..."/>
+        </div>
+        <div class="form-field" style="justify-content:flex-end">
+          <label>&nbsp;</label>
+          <button class="btn btn-primary" onclick="addEntry()"><i class="ti ti-plus"></i> agregar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "name": "agenda-trabajo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-config.js",
+    "dev": "npm run build && npx serve .",
+    "preview": "npm run build && npx serve dist"
+  },
+  "devDependencies": {
+    "dotenv": "^16.4.7",
+    "serve": "^14.2.4"
+  }
+}
