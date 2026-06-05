@@ -1,6 +1,6 @@
 # Agenda Trabajo
 
-Tracker personal de horas de trabajo con CRUD real sincronizado a Google Sheets.
+Tracker personal de horas de trabajo con CRUD real sincronizado a Google Sheets con google.
 
 ## Estructura del proyecto
 
