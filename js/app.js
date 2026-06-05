@@ -34,6 +34,7 @@ function getActiveTab() {
 
 function toast(msg, type = 'ok') {
   const t = document.getElementById('toast');
+  if (!t) return;
   t.textContent = msg;
   t.className = 'toast show ' + type;
   setTimeout(() => { t.className = 'toast'; }, 2500);
@@ -42,6 +43,7 @@ function toast(msg, type = 'ok') {
 function setConn(status) {
   const dot = document.getElementById('dot');
   const lbl = document.getElementById('conn-label');
+  if (!dot || !lbl) return;
   dot.className = 'dot' + (status === 'ok' ? ' ok' : status === 'loading' ? ' loading' : '');
   lbl.textContent = status === 'ok'
     ? 'conectado a sheets'
@@ -93,18 +95,21 @@ function persistToken() {
   }
 }
 
-function waitForGoogle() {
-  return new Promise((resolve) => {
-    if (window.google?.accounts?.oauth2) {
-      resolve();
-      return;
-    }
-    const interval = setInterval(() => {
+function waitForGoogle(timeoutMs = 15000) {
+  return new Promise((resolve, reject) => {
+    const started = Date.now();
+    const check = () => {
       if (window.google?.accounts?.oauth2) {
-        clearInterval(interval);
         resolve();
+        return;
       }
-    }, 100);
+      if (Date.now() - started >= timeoutMs) {
+        reject(new Error('Google OAuth tardó demasiado en cargar'));
+        return;
+      }
+      setTimeout(check, 100);
+    };
+    check();
   });
 }
 
@@ -131,14 +136,22 @@ function revokeToken() {
   updateAuthButton();
 }
 
-function requestAccessToken(promptMode) {
+function requestAccessToken(promptMode = '') {
   return new Promise((resolve, reject) => {
     if (!tokenClient) {
-      reject(new Error('Google OAuth no está listo'));
+      reject(new Error('Google OAuth no está listo — recarga la página'));
       return;
     }
+    const timeout = setTimeout(() => {
+      if (!pendingTokenResolver) return;
+      pendingTokenResolver.reject(new Error('autorización cancelada o expirada'));
+      pendingTokenResolver = null;
+    }, 120000);
+
     pendingTokenResolver = { resolve, reject };
     tokenClient.callback = (response) => {
+      clearTimeout(timeout);
+      if (!pendingTokenResolver) return;
       if (response.error) {
         const message = response.error_description || response.error;
         pendingTokenResolver.reject(new Error(message));
@@ -166,7 +179,7 @@ async function ensureAccessToken(interactive) {
     updateAuthButton();
     throw new Error('inicia sesión con Google');
   }
-  return requestAccessToken('consent');
+  return requestAccessToken('');
 }
 
 async function authorizeGoogle() {
@@ -174,12 +187,14 @@ async function authorizeGoogle() {
   try {
     await waitForGoogle();
     initGoogleTokenClient();
+    if (!tokenClient) throw new Error('OAuth Client ID inválido o faltante');
     await ensureAccessToken(true);
     setConn('ok');
     toast('sesión iniciada ✓');
     await syncSheet();
   } catch (err) {
     setConn('err');
+    updateAuthButton();
     toast(`error: ${err.message}`, 'err');
   }
 }
@@ -205,7 +220,9 @@ async function sheetsRequest(path, options = {}, interactiveAuth = false) {
 
 function renderTabs() {
   const wrap = document.getElementById('tabs-wrap');
+  if (!wrap) return;
   const addBtn = wrap.querySelector('.tab-add');
+  if (!addBtn) return;
   wrap.querySelectorAll('.tab').forEach((node) => node.remove());
   state.tabs.forEach((tab, i) => {
     const btn = document.createElement('button');
@@ -522,16 +539,25 @@ async function boot() {
     return;
   }
 
-  await waitForGoogle();
-  initGoogleTokenClient();
-  updateAuthButton();
+  try {
+    await waitForGoogle();
+    initGoogleTokenClient();
+    updateAuthButton();
 
-  if (!tokenIsValid()) {
+    if (!tokenIsValid()) {
+      setConn('err');
+      return;
+    }
+
+    await syncSheet();
+  } catch (err) {
     setConn('err');
-    return;
+    toast(`error: ${err.message}`, 'err');
   }
-
-  await syncSheet();
 }
 
-boot();
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', boot);
+} else {
+  boot();
+}
