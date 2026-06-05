@@ -294,16 +294,34 @@ function sheetNameForRange(title) {
   return `'${title.replace(/'/g, "''")}'`;
 }
 
+function parseNumber(value) {
+  if (value == null || value === '') return NaN;
+  const normalized = String(value).trim().replace(/\s/g, '').replace(',', '.');
+  return Number(normalized);
+}
+
+function parseDay(value) {
+  const day = parseNumber(value);
+  if (Number.isNaN(day) || day < 1 || day > 31) return NaN;
+  return Number.isInteger(day) ? day : NaN;
+}
+
 function parseRows(values = []) {
-  return values
-    .filter((row) => row[0] && !Number.isNaN(Number(row[0])))
-    .map((row, idx) => ({
-      day: Number(row[0]),
-      hours: Number(row[1]) || 0,
-      desc: row[2] || '',
-      rowNumber: idx + 2
-    }))
-    .filter((row) => row.hours > 0);
+  const rows = [];
+  values.forEach((row, idx) => {
+    const day = parseDay(row?.[0]);
+    if (Number.isNaN(day)) return;
+    const hours = parseNumber(row?.[1]);
+    const desc = (row?.[2] || '').trim();
+    if (Number.isNaN(hours) && !desc) return;
+    rows.push({
+      day,
+      hours: Number.isNaN(hours) ? 0 : hours,
+      desc,
+      rowNumber: idx + 1
+    });
+  });
+  return rows.filter((row) => row.hours > 0 || row.desc);
 }
 
 async function ensureHeader(tabTitle) {
@@ -317,7 +335,7 @@ async function ensureHeader(tabTitle) {
 async function loadTabRows(tab) {
   const range = encodeURIComponent(`${sheetNameForRange(tab.title)}!A:C`);
   const payload = await sheetsRequest(`/values/${range}`);
-  tab.rows = parseRows((payload.values || []).slice(1));
+  tab.rows = parseRows(payload.values || []);
 }
 
 async function loadSpreadsheetMeta() {
