@@ -306,6 +306,12 @@ function parseDay(value) {
   return Number.isInteger(day) ? day : NaN;
 }
 
+function rowHasEntry(row) {
+  const hours = parseNumber(row?.[1]);
+  const desc = (row?.[2] || '').trim();
+  return (!Number.isNaN(hours) && hours > 0) || desc.length > 0;
+}
+
 function parseRows(values = []) {
   const rows = [];
   values.forEach((row, idx) => {
@@ -332,10 +338,25 @@ async function ensureHeader(tabTitle) {
   });
 }
 
-async function loadTabRows(tab) {
+async function fetchTabValues(tab) {
   const range = encodeURIComponent(`${sheetNameForRange(tab.title)}!A:C`);
   const payload = await sheetsRequest(`/values/${range}`);
-  tab.rows = parseRows(payload.values || []);
+  return payload.values || [];
+}
+
+async function findInsertRowNumber(tab, day) {
+  const values = await fetchTabValues(tab);
+  for (let i = 0; i < values.length; i++) {
+    if (parseDay(values[i]?.[0]) === day && !rowHasEntry(values[i])) return i + 1;
+  }
+  for (let i = 0; i < values.length; i++) {
+    if (!rowHasEntry(values[i])) return i + 1;
+  }
+  return values.length + 1;
+}
+
+async function loadTabRows(tab) {
+  tab.rows = parseRows(await fetchTabValues(tab));
 }
 
 async function loadSpreadsheetMeta() {
@@ -434,18 +455,19 @@ async function deleteActiveTab() {
 async function addEntry() {
   const tab = getActiveTab();
   if (!tab) return;
-  const day = Number.parseInt(document.getElementById('f-day').value, 10);
-  const hours = Number.parseFloat(document.getElementById('f-hours').value);
+  const day = parseDay(document.getElementById('f-day').value);
+  const hours = parseNumber(document.getElementById('f-hours').value);
   const desc = document.getElementById('f-desc').value.trim();
-  if (!day || !hours || !desc) {
+  if (Number.isNaN(day) || Number.isNaN(hours) || !desc) {
     toast('completa todos los campos', 'err');
     return;
   }
   setConn('loading');
   try {
-    const range = encodeURIComponent(`${sheetNameForRange(tab.title)}!A:C`);
-    await sheetsRequest(`/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
-      method: 'POST',
+    const rowNumber = await findInsertRowNumber(tab, day);
+    const cellRange = encodeURIComponent(`${sheetNameForRange(tab.title)}!A${rowNumber}:C${rowNumber}`);
+    await sheetsRequest(`/values/${cellRange}?valueInputOption=USER_ENTERED`, {
+      method: 'PUT',
       body: JSON.stringify({ values: [[day, hours, desc]] })
     });
     document.getElementById('f-day').value = '';
@@ -472,10 +494,10 @@ async function editEntry(index) {
   if (hoursText === null) return;
   const descText = prompt('Nueva descripción:', entry.desc);
   if (descText === null) return;
-  const day = Number.parseInt(dayText, 10);
-  const hours = Number.parseFloat(hoursText);
+  const day = parseDay(dayText);
+  const hours = parseNumber(hoursText);
   const desc = descText.trim();
-  if (!day || !hours || !desc) {
+  if (Number.isNaN(day) || Number.isNaN(hours) || !desc) {
     toast('datos inválidos para editar', 'err');
     return;
   }
