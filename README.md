@@ -74,10 +74,11 @@ npm run dev
 
 Abre `http://localhost:3000` en el navegador.
 
-6. En la app, abre **configuración** y pulsa **autorizar** para iniciar sesión con Google (OAuth).  
-   Esa autorización permite que la app cree/edite/borre datos en tu spreadsheet.
+6. Pulsa **iniciar sesión** para autorizar con Google OAuth.
 
 ## Despliegue en GitHub Pages
+
+Las credenciales se inyectan en build time desde **GitHub Secrets** (no hay panel de configuración en la UI).
 
 ### 1. Configura los secrets del repositorio
 
@@ -131,4 +132,4 @@ Tu app quedará disponible en:
 - Agregar, editar y eliminar filas directamente en Sheets
 - Estadísticas: total horas, días trabajados, promedio
 - Exportación a CSV
-- Panel de configuración + autorización OAuth
+- Login con Google OAuth (sin exponer credenciales en la UI)

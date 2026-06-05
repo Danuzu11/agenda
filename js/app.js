@@ -6,9 +6,9 @@ let tokenClient = null;
 let pendingTokenResolver = null;
 
 const state = {
-  apiKey: localStorage.getItem('gsheets_key') || envConfig.apiKey || '',
-  clientId: localStorage.getItem('gsheets_clientid') || envConfig.clientId || '',
-  sheetId: localStorage.getItem('gsheets_id') || envConfig.sheetId || '',
+  apiKey: envConfig.apiKey || '',
+  clientId: envConfig.clientId || '',
+  sheetId: envConfig.sheetId || '',
   accessToken: localStorage.getItem('gsheets_access_token') || '',
   tokenExpiresAt: Number(localStorage.getItem('gsheets_access_exp') || '0'),
   tabs: [],
@@ -52,6 +52,12 @@ function setConn(status) {
         : 'sin conectar';
 }
 
+function updateAuthButton() {
+  const btn = document.getElementById('auth-btn');
+  if (!btn) return;
+  btn.style.display = tokenIsValid() ? 'none' : 'inline-flex';
+}
+
 function parseApiError(payload, fallbackMessage) {
   if (payload && payload.error) {
     if (typeof payload.error === 'string') return payload.error;
@@ -77,12 +83,6 @@ async function fetchJson(url, options = {}) {
   return payload;
 }
 
-function persistConfig() {
-  localStorage.setItem('gsheets_key', state.apiKey);
-  localStorage.setItem('gsheets_clientid', state.clientId);
-  localStorage.setItem('gsheets_id', state.sheetId);
-}
-
 function persistToken() {
   if (state.accessToken) {
     localStorage.setItem('gsheets_access_token', state.accessToken);
@@ -93,44 +93,23 @@ function persistToken() {
   }
 }
 
-function openConfigPanelWithValues() {
-  const panel = document.getElementById('config-panel');
-  panel.classList.add('open');
-  document.getElementById('inp-key').value = state.apiKey;
-  document.getElementById('inp-clientid').value = state.clientId;
-  document.getElementById('inp-sheetid').value = state.sheetId;
-}
-
-function toggleConfig() {
-  const panel = document.getElementById('config-panel');
-  panel.classList.toggle('open');
-  if (panel.classList.contains('open')) {
-    document.getElementById('inp-key').value = state.apiKey;
-    document.getElementById('inp-clientid').value = state.clientId;
-    document.getElementById('inp-sheetid').value = state.sheetId;
-  }
-}
-
-function saveConfig() {
-  const key = document.getElementById('inp-key').value.trim();
-  const clientId = document.getElementById('inp-clientid').value.trim();
-  const sheetId = document.getElementById('inp-sheetid').value.trim();
-  if (!key || !clientId || !sheetId) {
-    toast('completa API key, client id y sheet id', 'err');
-    return;
-  }
-  state.apiKey = key;
-  state.clientId = clientId;
-  state.sheetId = sheetId;
-  persistConfig();
-  initGoogleTokenClient();
-  document.getElementById('config-panel').classList.remove('open');
-  toast('configuración guardada');
+function waitForGoogle() {
+  return new Promise((resolve) => {
+    if (window.google?.accounts?.oauth2) {
+      resolve();
+      return;
+    }
+    const interval = setInterval(() => {
+      if (window.google?.accounts?.oauth2) {
+        clearInterval(interval);
+        resolve();
+      }
+    }, 100);
+  });
 }
 
 function initGoogleTokenClient() {
-  if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) return;
-  if (!state.clientId) return;
+  if (!window.google?.accounts?.oauth2 || !state.clientId) return;
   tokenClient = window.google.accounts.oauth2.initTokenClient({
     client_id: state.clientId,
     scope: GSI_SCOPE,
@@ -143,18 +122,19 @@ function tokenIsValid() {
 }
 
 function revokeToken() {
-  if (state.accessToken && window.google && window.google.accounts && window.google.accounts.oauth2) {
+  if (state.accessToken && window.google?.accounts?.oauth2) {
     window.google.accounts.oauth2.revoke(state.accessToken);
   }
   state.accessToken = '';
   state.tokenExpiresAt = 0;
   persistToken();
+  updateAuthButton();
 }
 
 function requestAccessToken(promptMode) {
   return new Promise((resolve, reject) => {
     if (!tokenClient) {
-      reject(new Error('configura primero el client id de Google'));
+      reject(new Error('Google OAuth no está listo'));
       return;
     }
     pendingTokenResolver = { resolve, reject };
@@ -169,6 +149,7 @@ function requestAccessToken(promptMode) {
       const expiresIn = Number(response.expires_in || 3600);
       state.tokenExpiresAt = Date.now() + expiresIn * 1000;
       persistToken();
+      updateAuthButton();
       pendingTokenResolver.resolve(state.accessToken);
       pendingTokenResolver = null;
     };
@@ -179,23 +160,27 @@ function requestAccessToken(promptMode) {
 async function ensureAccessToken(interactive) {
   if (tokenIsValid()) return state.accessToken;
   if (!state.apiKey || !state.clientId || !state.sheetId) {
-    openConfigPanelWithValues();
-    throw new Error('faltan datos de configuración');
+    throw new Error('falta configuración del servidor');
   }
-  const promptMode = interactive ? 'consent' : '';
-  return requestAccessToken(promptMode);
+  if (!interactive) {
+    updateAuthButton();
+    throw new Error('inicia sesión con Google');
+  }
+  return requestAccessToken('consent');
 }
 
 async function authorizeGoogle() {
   setConn('loading');
   try {
+    await waitForGoogle();
+    initGoogleTokenClient();
     await ensureAccessToken(true);
     setConn('ok');
-    toast('autorización correcta ✓');
+    toast('sesión iniciada ✓');
     await syncSheet();
   } catch (err) {
     setConn('err');
-    toast(`error autorización: ${err.message}`, 'err');
+    toast(`error: ${err.message}`, 'err');
   }
 }
 
@@ -212,7 +197,7 @@ async function sheetsRequest(path, options = {}, interactiveAuth = false) {
   } catch (err) {
     if (String(err.message).toLowerCase().includes('invalid credentials')) {
       revokeToken();
-      throw new Error('sesión expirada, vuelve a autorizar');
+      throw new Error('sesión expirada, vuelve a iniciar sesión');
     }
     throw err;
   }
@@ -266,13 +251,21 @@ function updateStats() {
   document.getElementById('s-last').textContent = rows.length ? `día ${rows[rows.length - 1].day}` : '—';
 }
 
-function switchTab(index) {
+async function switchTab(index) {
   if (!state.tabs[index]) return;
   state.activeTab = index;
   renderTabs();
-  renderTable();
-  updateStats();
   document.getElementById('card-month').textContent = state.tabs[index].title;
+  setConn('loading');
+  try {
+    await loadTabRows(state.tabs[index]);
+    renderTable();
+    updateStats();
+    setConn('ok');
+  } catch (err) {
+    setConn('err');
+    toast(`error cargando pestaña: ${err.message}`, 'err');
+  }
 }
 
 function toggleDesc(index) {
@@ -332,11 +325,14 @@ async function syncSheet() {
     const active = getActiveTab();
     await loadTabRows(active);
     renderTabs();
-    switchTab(state.activeTab);
+    document.getElementById('card-month').textContent = active.title;
+    renderTable();
+    updateStats();
     setConn('ok');
     toast(`${active.rows.length} entradas cargadas ✓`);
   } catch (err) {
     setConn('err');
+    if (String(err.message).includes('inicia sesión')) updateAuthButton();
     toast(`error sync: ${err.message}`, 'err');
   }
 }
@@ -413,25 +409,18 @@ async function addEntry() {
   setConn('loading');
   try {
     const range = encodeURIComponent(`${sheetNameForRange(tab.title)}!A:C`);
-    const payload = await sheetsRequest(`/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
+    await sheetsRequest(`/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
       method: 'POST',
       body: JSON.stringify({ values: [[day, hours, desc]] })
     });
-    const updatedRange = payload.updates && payload.updates.updatedRange ? payload.updates.updatedRange : '';
-    const rowMatch = updatedRange.match(/![A-Z]+(\d+):/);
-    const rowNumber = rowMatch ? Number(rowMatch[1]) : (tab.rows.length + 2);
-    tab.rows.push({ day, hours, desc, rowNumber });
-    tab.rows.sort((a, b) => a.day - b.day);
     document.getElementById('f-day').value = '';
     document.getElementById('f-hours').value = '';
     document.getElementById('f-desc').value = '';
+    await loadTabRows(tab);
     renderTable();
     updateStats();
     setConn('ok');
     toast('entrada agregada ✓');
-    await loadTabRows(tab);
-    renderTable();
-    updateStats();
   } catch (err) {
     setConn('err');
     toast(`error agregando entrada: ${err.message}`, 'err');
@@ -523,18 +512,25 @@ function exportCSV() {
 }
 
 async function boot() {
-  initGoogleTokenClient();
+  localStorage.removeItem('gsheets_key');
+  localStorage.removeItem('gsheets_clientid');
+  localStorage.removeItem('gsheets_id');
+
   if (!state.apiKey || !state.clientId || !state.sheetId) {
-    openConfigPanelWithValues();
     setConn('err');
+    toast('falta configuración del servidor', 'err');
     return;
   }
+
+  await waitForGoogle();
+  initGoogleTokenClient();
+  updateAuthButton();
+
   if (!tokenIsValid()) {
-    openConfigPanelWithValues();
     setConn('err');
-    toast('haz clic en autorizar para iniciar sesión', 'err');
     return;
   }
+
   await syncSheet();
 }
 

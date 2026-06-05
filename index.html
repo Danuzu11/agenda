@@ -23,25 +23,9 @@
         <span id="conn-label">sin conectar</span>
       </div>
     </div>
-    <button class="config-toggle" onclick="toggleConfig()">
-      <i class="ti ti-settings"></i> configuración
+    <button class="btn btn-ghost btn-sm auth-btn" id="auth-btn" onclick="authorizeGoogle()">
+      <i class="ti ti-brand-google"></i> iniciar sesión
     </button>
-  </div>
-
-  <div class="config-panel" id="config-panel">
-    <div class="config-title">conexión a google sheets</div>
-    <div class="config-row">
-      <input class="cfg-input" id="inp-key" placeholder="API Key de Google..." type="password"/>
-      <input class="cfg-input" id="inp-clientid" placeholder="Google OAuth Client ID..."/>
-      <input class="cfg-input" id="inp-sheetid" placeholder="ID del spreadsheet..."/>
-      <button class="btn btn-primary" onclick="saveConfig()"><i class="ti ti-plug"></i> conectar</button>
-      <button class="btn btn-ghost" onclick="authorizeGoogle()"><i class="ti ti-user-check"></i> autorizar</button>
-    </div>
-    <div class="hint">
-      API Key: clave de Google Cloud con Sheets API habilitada<br>
-      Client ID: OAuth 2.0 Web Client ID del mismo proyecto<br>
-      Sheet ID: la parte larga en la URL → <code>/spreadsheets/d/<b>ESTE_ID</b>/edit</code>
-    </div>
   </div>
 
   <div class="stats">
