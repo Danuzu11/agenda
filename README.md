@@ -28,7 +28,7 @@ agenda/
 
 ### Formato del spreadsheet
 
-Cada pestaña debe tener estas columnas:
+Cada pestaña debe tener estas columnas para funcionar:
 
 | A (día) | B (horas) | C (actividades) |
 |---------|-----------|-----------------|
