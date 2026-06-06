@@ -82,7 +82,7 @@ Las credenciales se inyectan en build time desde **GitHub Secrets** (no hay pane
 
 ### 1. Configura los secrets del repositorio
 
-En GitHub → **Settings → Secrets and variables → Actions**, agrega:
+En GitHub → **Settings → Secrets and variables → Actions → Repository secrets**, agrega:
 
 | Secret | Valor |
 |--------|-------|
@@ -90,21 +90,22 @@ En GitHub → **Settings → Secrets and variables → Actions**, agrega:
 | `GOOGLE_CLIENT_ID` | Tu OAuth Client ID |
 | `GOOGLE_SHEET_ID` | ID de tu spreadsheet |
 
-### 2. Activa GitHub Pages
+> Deben ser **Secrets**, no Variables. Los nombres deben ser exactos.
+
+### 2. Activa GitHub Pages desde `gh-pages`
 
 En **Settings → Pages**:
 
-- **Source**: GitHub Actions
+- **Source:** Deploy from a branch
+- **Branch:** `gh-pages` → `/ (root)`
 
-### 3. Sube el código
+El workflow publica la carpeta `dist/` (con `config.js` generado) en la rama `gh-pages`.
 
-```bash
-git add .
-git commit -m "setup agenda para github pages"
-git push origin main
-```
+### 3. Verifica el deploy
 
-El workflow `.github/workflows/deploy.yml` se ejecutará automáticamente y publicará la carpeta `dist/` en GitHub Pages.
+1. Ve a **Actions** → **Deploy to GitHub Pages** (debe estar en verde)
+2. Abre `https://TU_USUARIO.github.io/agenda/js/config.js` — no debe dar 404 ni tener `clientId: ""`
+3. Abre la app y pulsa **iniciar sesión**
 
 Tu app quedará disponible en:
 `https://TU_USUARIO.github.io/agenda/`

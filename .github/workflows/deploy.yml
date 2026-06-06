@@ -3,21 +3,17 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main, master]
+  workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -32,6 +28,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify secrets
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+        run: |
+          missing=0
+          if [ -z "$GOOGLE_API_KEY" ]; then echo "::error::Falta secret GOOGLE_API_KEY"; missing=1; fi
+          if [ -z "$GOOGLE_CLIENT_ID" ]; then echo "::error::Falta secret GOOGLE_CLIENT_ID"; missing=1; fi
+          if [ -z "$GOOGLE_SHEET_ID" ]; then echo "::error::Falta secret GOOGLE_SHEET_ID"; missing=1; fi
+          if [ "$missing" -eq 1 ]; then exit 1; fi
+
       - name: Build
         run: npm run build
         env:
@@ -39,14 +47,16 @@ jobs:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
+      - name: Verify config.js
+        run: |
+          test -f dist/js/config.js || (echo "dist/js/config.js no existe" && exit 1)
+          grep -q 'clientId: "' dist/js/config.js || exit 1
+          grep -q 'clientId: ""' dist/js/config.js && (echo "clientId vacío en config.js" && cat dist/js/config.js && exit 1) || true
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Deploy to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: dist
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          publish_branch: gh-pages
+          force_orphan: true
