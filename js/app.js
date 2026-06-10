@@ -55,9 +55,16 @@ function setConn(status) {
 }
 
 function updateAuthButton() {
-  const btn = document.getElementById('auth-btn');
-  if (!btn) return;
-  btn.style.display = tokenIsValid() ? 'none' : 'inline-flex';
+  const authBtn = document.getElementById('auth-btn');
+  const logoutBtn = document.getElementById('logout-btn');
+  if (authBtn) authBtn.style.display = tokenIsValid() ? 'none' : 'inline-flex';
+  if (logoutBtn) logoutBtn.style.display = tokenIsValid() ? 'inline-flex' : 'none';
+}
+
+function logoutGoogle() {
+  revokeToken();
+  setConn();
+  toast('sesión cerrada ✓');
 }
 
 function parseApiError(payload, fallbackMessage) {
