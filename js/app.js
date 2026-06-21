@@ -270,8 +270,8 @@ function updateStats() {
   const total = rows.reduce((sum, row) => sum + row.hours, 0);
   const days = rows.length;
   document.getElementById('s-total').textContent = total.toFixed(1);
-  document.getElementById('s-days').textContent = String(days);
-  document.getElementById('s-avg').textContent = days ? (total / days).toFixed(1) : '0';
+  // document.getElementById('s-days').textContent = String(rows[rows.length - 1].day || '0');
+  // document.getElementById('s-avg').textContent = days ? (total / days).toFixed(1) : '0';
   document.getElementById('s-last').textContent = rows.length ? `día ${rows[rows.length - 1].day}` : '—';
 }
 
